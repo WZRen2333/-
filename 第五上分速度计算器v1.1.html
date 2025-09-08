@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>第五人格排位计算器（完整版 - 优化版）</title>
+    <style>
+        :root {
+            --primary-color: #0066ff;
+            --primary-hover: #0052cc;
+            --background-color: #f4f6f9;
+            --surface-color: #ffffff;
+            --text-color: #2c3e50;
+            --border-color: #e0e6ed;
+            --success-bg: #e6f7f0;
+            --success-border: #00b069;
+            --section-header-bg: #f8faff;
+        }
+        @keyframes fadeInSlideUp {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        body {
+            font-family: 'Helvetica Neue', 'Hiragino Sans GB', 'WenQuanYi Micro Hei', 'Microsoft YaHei', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            width: 100%;
+            max-width: 920px;
+            background-color: var(--surface-color);
+            padding: 20px 28px 30px 28px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+        }
+        h1 {
+            text-align: center;
+            color: #1a2c50;
+            margin-bottom: 18px;
+        }
+        .section {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 18px;
+            overflow: hidden;
+            transition: box-shadow 0.3s;
+        }
+        .section-header {
+            background-color: var(--section-header-bg);
+            padding: 12px 18px;
+            font-size: 1.05em;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .section-content { padding: 18px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label {
+            display: flex; align-items: center; margin-bottom: 8px;
+            font-weight: 500; color: #555;
+        }
+        input[type="number"], select {
+            width: 100%; padding: 10px; border: 1px solid var(--border-color);
+            border-radius: 8px; box-sizing: border-box; transition: all 0.25s;
+        }
+        input[type="range"] { width: 100%; }
+        input[type="number"]:focus, select:focus {
+            outline: none; border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.12);
+        }
+        .rank-selector { display: grid; grid-template-columns: 2fr 2fr 1.5fr; gap: 10px; }
+        .button-group { display: flex; gap: 12px; margin-top: 8px; }
+        button {
+            flex: 1; padding: 12px; color: white; border: none; border-radius: 8px;
+            font-size: 16px; font-weight: bold; cursor: pointer; transition: all 0.25s;
+        }
+        #calculateBtn { background: linear-gradient(45deg, var(--primary-color), var(--primary-hover)); }
+        #calculateBtn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 102, 255, 0.18); }
+        #resetFormBtn { background-color: #6c757d; }
+        #resetFormBtn:hover { background-color: #5a6268; transform: translateY(-2px); }
+        #result {
+            margin-top: 18px; padding: 18px; background-color: var(--success-bg);
+            border-left: 5px solid var(--success-border); border-radius: 8px;
+            display: none; animation: fadeInSlideUp 0.45s ease-out forwards;
+        }
+        #result p { margin: 8px 0; font-size: 1.03em;}
+        .error { color: #d93025; font-weight: 500; text-align: center; margin-top: 12px; padding: 10px; border-radius: 8px; background: #fbeae9; display: none; }
+        .tooltip {
+            position: relative; display: inline-flex; justify-content: center; align-items: center;
+            width: 18px; height: 18px; margin-left: 8px; background-color: #a0aec0; color: white; border-radius: 50%;
+            font-family: serif; font-style: italic; font-weight: bold; font-size: 14px; cursor: pointer; user-select: none;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden; width: 280px; background-color: #343a40; color: #fff;
+            text-align: left; border-radius: 6px; padding: 10px; position: absolute;
+            z-index: 1; bottom: 125%; left: 50%; margin-left: -140px; opacity: 0;
+            transition: opacity 0.25s; font-size: 0.86em;
+        }
+        .tooltip:hover { background-color: var(--primary-color); }
+        .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+        .slider-group { display: flex; align-items: center; gap: 12px; }
+        .slider-group input[type="range"] { flex: 1; }
+        .slider-group span { font-weight: 500; min-width: 48px; text-align: right; }
+        .footer { text-align: center; margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--border-color); }
+        .author-credit { font-weight: 600; color: var(--text-color); margin-bottom: 8px; font-size: 0.9em; }
+        .disclaimer { font-size: 0.82em; color: #6c757d; margin: 0; }
+        @media (max-width: 760px) {
+            .container { padding: 14px; }
+            .rank-selector { grid-template-columns: 1fr; }
+            .button-group { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>第五人格排位计算器（完整版 - 优化）</h1>
+        
+        <form id="calculator-form">
+            <div class="section">
+                <div class="section-header">① 核心参数</div>
+                <div class="section-content">
+                    <div class="form-group">
+                        <label for="startTier">初始段位</label>
+                        <div class="rank-selector">
+                            <select id="startTier"></select>
+                            <select id="startSubTier"></select>
+                            <select id="startStars"></select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="targetTier">目标段位</label>
+                        <div class="rank-selector" style="grid-template-columns: 1fr 1fr;">
+                            <select id="targetTier"></select>
+                            <select id="targetSubTier"></select>
+                        </div>
+                        <div id="peak-star-target-wrapper" class="form-group" style="display:none; margin-top: 10px;">
+                            <label for="peakTargetStars">输入目标星数（巅峰七阶）</label>
+                            <input type="number" id="peakTargetStars" value="26" min="26">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="gameWinRate">游戏内排位胜率 (%) 
+                            <div class="tooltip">i<span class="tooltiptext">请填入个人档案中的“排位胜率”：胜局 / (总局数 - 平局数)。</span></div>
+                        </label>
+                        <input type="number" id="gameWinRate" placeholder="例如: 50" min="0" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="totalDrawRate">平局在总对局中的预估占比 (%) 
+                            <div class="tooltip">i<span class="tooltiptext">例：10局里2局平局则填 20。用于反推真实的胜/负概率。</span></div>
+                        </label>
+                        <input type="number" id="totalDrawRate" placeholder="例如: 15" min="0" max="100">
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">② 游戏习惯与额外加分项</div>
+                <div class="section-content">
+                     <div class="form-group">
+                        <label>选择阵营</label>
+                        <select id="faction-select">
+                            <option value="survivor">求生者</option>
+                            <option value="hunter">监管者</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="queueTime">平均排队+BP时间 (分钟)</label>
+                        <input type="number" id="queueTime" placeholder="例如: 3" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="matchTime">平均对局时间 (分钟)</label>
+                        <input type="number" id="matchTime" placeholder="例如: 10" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="playHours">每日排位时长 (小时)</label>
+                        <input type="number" id="playHours" placeholder="例如: 2" min="0">
+                    </div>
+                    
+                    <div id="survivor-options">
+                        <div class="form-group">
+                            <label><input type="checkbox" id="isSolo"> 我是单人排位</label>
+                        </div>
+                        <div class="form-group">
+                            <label>“虽败犹荣”加分频率
+                                 <div class="tooltip">i<span class="tooltiptext">在败/平局中，您有几率获得表现类额外加分（例如牵制、救援等）？</span></div>
+                            </label>
+                             <div class="slider-group">
+                                <input type="range" id="diligenceFreq" min="0" max="100" value="20" step="1">
+                                <span id="diligenceFreqValue">20%</span>
+                            </div>
+                        </div>
+                         <div class="form-group">
+                            <label>队友挂机频率
+                                 <div class="tooltip">i<span class="tooltiptext">预估您遇到队友挂机并因此获得补偿分的对局占比（默认极低）。</span></div>
+                            </label>
+                             <div class="slider-group">
+                                <input type="range" id="afkFreq" min="0" max="100" value="0.5" step="0.5">
+                                <span id="afkFreqValue">0.5%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="hunter-options" style="display: none;">
+                        <div class="form-group">
+                            <label>平/负局获得“最佳演绎”加分频率</label>
+                             <div class="slider-group">
+                                <input type="range" id="bestPerfFreq" min="0" max="100" value="30" step="1">
+                                <span id="bestPerfFreqValue">30%</span>
+                            </div>
+                        </div>
+                         <div class="form-group">
+                            <label>遇到多排队伍加分频率 (默契的对手)
+                                <div class="tooltip">i<span class="tooltiptext">预估您遇到多排队伍并获得额外分的几率（高段位更常见）。</span></div>
+                            </label>
+                            <div class="slider-group">
+                                <input type="range" id="teamEncounterFreq" min="0" max="100" value="40" step="1">
+                                <span id="teamEncounterFreqValue">40%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>遇到强敌加分频率 (力抗强敌/力战天选)
+                             <div class="tooltip">i<span class="tooltiptext">预估您遇到段位明显高于自身并获得补偿分的对局占比。</span></div>
+                        </label>
+                         <div class="slider-group">
+                            <input type="range" id="strongEnemyFreq" min="0" max="100" value="40" step="1">
+                            <span id="strongEnemyFreqValue">40%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+        
+        <div class="button-group">
+            <button id="calculateBtn" type="button">🚀 开始计算</button>
+            <button id="resetFormBtn" type="button">🔄 一键重置</button>
+        </div>
+        <div id="error-message" class="error"></div>
+        <div id="result"></div>
+        
+        <div class="section" style="margin-top: 20px;">
+             <div class="section-header">③ 赛季段位重置工具</div>
+             <div class="section-content">
+                 <div class="form-group">
+                     <label for="seasonEndTier">选择您的赛季末段位</label>
+                     <div class="rank-selector" style="grid-template-columns: 1fr 1fr;">
+                         <select id="seasonEndTier"></select>
+                         <select id="seasonEndSubTier"></select>
+                     </div>
+                 </div>
+                 <div class="form-group" style="display: flex; justify-content: center;">
+                    <button id="resetBtn" type="button">查看新赛季段位</button>
+                 </div>
+                 <div id="resetResult" style="text-align: center; margin-top: 12px; font-weight: bold; font-size: 1.02em;"></div>
+             </div>
+         </div>
+         
+         <div class="footer">
+            <p class="author-credit">作者B站：额我是WZ人</p>
+            <p class="disclaimer">免责声明：本计算为基于规则与平均期望的理论估算，结果受参数准确性影响，仅供参考。</p>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        /**********************
+         * 段位数据（维持你原始设定）
+         **********************/
+        const rankData = [
+            {id:1,name:"一阶",subTiers:3,starsPerSub:3,pointsPerStar:20},
+            {id:2,name:"二阶",subTiers:4,starsPerSub:4,pointsPerStar:20},
+            {id:3,name:"三阶",subTiers:5,starsPerSub:5,pointsPerStar:20},
+            {id:4,name:"四阶",subTiers:5,starsPerSub:5,pointsPerStar:20},
+            {id:5,name:"五阶",subTiers:5,starsPerSub:5,pointsPerStar:30},
+            {id:6,name:"六阶",subTiers:5,starsPerSub:5,pointsPerStar:30},
+            {id:7,name:"七阶",subTiers:1,starsPerSub:25,pointsPerStar:30},
+            {id:8,name:"巅峰七阶",subTiers:1,starsPerSub:Infinity,pointsPerStar:30}
+        ];
+        const subTierNames = ["I","II","III","IV","V"];
+
+        // 计算每个段位起始积分以及每个子段顶点积分（和你原始脚本保持一致）
+        let pointsToStartTier = {};
+        let totalPointsMap = {};
+        let cumulative = 0;
+        for (let i = 0; i < rankData.length; i++) {
+            const tier = rankData[i];
+            pointsToStartTier[tier.id] = cumulative;
+            if (tier.id !== 8) {
+                const totalStarsInTier = (tier.id === 7) ? 25 : tier.subTiers * tier.starsPerSub;
+                cumulative += totalStarsInTier * tier.pointsPerStar;
+            }
+            // 计算每个子段的“到达该子段最高位置所需积分”（仅用于目标选择映射）
+            if (tier.id < 7) {
+                for (let s = 1; s <= tier.subTiers; s++) {
+                    // 使用与你原脚本相同的映射方法，保证行为一致
+                    totalPointsMap[`${tier.id}-${s}`] = pointsToStartTier[tier.id] + (tier.subTiers - s + 1) * tier.starsPerSub * tier.pointsPerStar;
+                }
+            }
+        }
+        // 七阶与巅峰映射
+        totalPointsMap['7-1'] = pointsToStartTier[8];
+        totalPointsMap['8-1'] = pointsToStartTier[8];
+
+        /**********************
+         * DOM 引用
+         **********************/
+        const allDOM = {
+            startTier: document.getElementById("startTier"),
+            startSubTier: document.getElementById("startSubTier"),
+            startStars: document.getElementById("startStars"),
+            targetTier: document.getElementById("targetTier"),
+            targetSubTier: document.getElementById("targetSubTier"),
+            peakTargetStars: document.getElementById("peakTargetStars"),
+            seasonEndTier: document.getElementById("seasonEndTier"),
+            seasonEndSubTier: document.getElementById("seasonEndSubTier"),
+            calculateBtn: document.getElementById("calculateBtn"),
+            resetBtn: document.getElementById("resetBtn"),
+            resetFormBtn: document.getElementById("resetFormBtn"),
+            resultDiv: document.getElementById("result"),
+            resetResultDiv: document.getElementById("resetResult"),
+            errorMessageDiv: document.getElementById("error-message"),
+            factionSelect: document.getElementById("faction-select"),
+            survivorOptions: document.getElementById("survivor-options"),
+            hunterOptions: document.getElementById("hunter-options"),
+            diligenceSlider: document.getElementById("diligenceFreq"),
+            diligenceValue: document.getElementById("diligenceFreqValue"),
+            afkSlider: document.getElementById("afkFreq"),
+            afkValue: document.getElementById("afkFreqValue"),
+            bestPerfSlider: document.getElementById("bestPerfFreq"),
+            bestPerfValue: document.getElementById("bestPerfFreqValue"),
+            teamEncounterSlider: document.getElementById("teamEncounterFreq"),
+            teamEncounterValue: document.getElementById("teamEncounterFreqValue"),
+            strongEnemySlider: document.getElementById("strongEnemyFreq"),
+            strongEnemyValue: document.getElementById("strongEnemyFreqValue"),
+            isSoloCheckbox: document.getElementById("isSolo"),
+        };
+
+        /**********************
+         * Helper：填充下拉项与星数输入（沿用并修正你原始逻辑）
+         **********************/
+        function populateTierSelect(selectElement) {
+            selectElement.innerHTML = "";
+            for (let i = 1; i <= 8; i++) {
+                const option = document.createElement("option");
+                option.value = i;
+                option.textContent = rankData[i-1].name;
+                selectElement.appendChild(option);
+            }
+        }
+        function updateSubTierSelect(tierSelect, subTierSelect, selectorType) {
+            const tierId = parseInt(tierSelect.value);
+            const tier = rankData.find(t => t.id === tierId);
+            subTierSelect.innerHTML = '';
+            if (tierId === 7 && selectorType === 'target') {
+                // 0..24 代表七阶 0..24 星
+                for (let i = 0; i <= 24; i++) {
+                    const option = document.createElement("option");
+                    option.value = i;
+                    option.textContent = `${i} 星`;
+                    subTierSelect.appendChild(option);
+                }
+            } else if (tierId >= 7) {
+                const option = document.createElement("option");
+                option.value = 1;
+                option.textContent = (selectorType === 'target') ? "达到该段位" : (tierId === 8 ? "25星以上" : "0-24星");
+                subTierSelect.appendChild(option);
+            } else {
+                // 填充小段（注意：和原来保持一致，value 使用 i）
+                for (let i = tier.subTiers; i >= 1; i--) {
+                    const option = document.createElement("option");
+                    option.value = i;
+                    option.textContent = `${subTierNames[i-1]}段`;
+                    subTierSelect.appendChild(option);
+                }
+            }
+        }
+        function updateStartStarsSelect() {
+            const tierId = parseInt(allDOM.startTier.value);
+            const tier = rankData.find(t => t.id === tierId);
+            let starsEl = document.getElementById("startStars") || document.getElementById("peakStarsInput");
+            // if tier is peak seven, show numeric input starting at 25
+            if (tier.name === "巅峰七阶") {
+                // create numeric input if not exists
+                if (!starsEl || starsEl.tagName === "SELECT") {
+                    const input = document.createElement("input");
+                    input.type = "number";
+                    input.min = 25;
+                    input.value = 25;
+                    input.id = "startStars";
+                    input.style.padding = "10px";
+                    starsEl.replaceWith(input);
+                }
+            } else {
+                // ensure select exists
+                if (!starsEl || starsEl.tagName === "INPUT") {
+                    const select = document.createElement("select");
+                    select.id = "startStars";
+                    starsEl.replaceWith(select);
+                    starsEl = select;
+                }
+                starsEl.innerHTML = "";
+                const starsNeeded = (tier.id === 7) ? 25 : tier.starsPerSub;
+                for (let i = 0; i < starsNeeded; i++) {
+                    const option = document.createElement("option");
+                    option.value = i;
+                    option.textContent = `${i} 星`;
+                    starsEl.appendChild(option);
+                }
+            }
+        }
+
+        /**********************
+         * 填充初始 UI 并设置监听
+         **********************/
+        populateTierSelect(allDOM.startTier);
+        populateTierSelect(allDOM.targetTier);
+        populateTierSelect(allDOM.seasonEndTier);
+        updateSubTierSelect(allDOM.startTier, allDOM.startSubTier, 'start');
+        updateSubTierSelect(allDOM.targetTier, allDOM.targetSubTier, 'target');
+        updateSubTierSelect(allDOM.seasonEndTier, allDOM.seasonEndSubTier, 'seasonEnd');
+        updateStartStarsSelect();
+
+        allDOM.startTier.addEventListener("change", () => { updateSubTierSelect(allDOM.startTier, allDOM.startSubTier, 'start'); updateStartStarsSelect(); });
+        allDOM.startSubTier.addEventListener("change", updateStartStarsSelect);
+        allDOM.targetTier.addEventListener("change", () => { updateSubTierSelect(allDOM.targetTier, allDOM.targetSubTier, 'target'); togglePeakTargetInput(); });
+        allDOM.seasonEndTier.addEventListener("change", () => updateSubTierSelect(allDOM.seasonEndTier, allDOM.seasonEndSubTier, 'seasonEnd'));
+
+        function togglePeakTargetInput() {
+            allDOM.targetTier.value === "8" ? document.getElementById("peak-star-target-wrapper").style.display = "block" : document.getElementById("peak-star-target-wrapper").style.display = "none";
+        }
+        togglePeakTargetInput();
+
+        // slider 显示值绑定
+        const sliderPairs = [
+            {el: allDOM.diligenceSlider, valEl: allDOM.diligenceValue},
+            {el: allDOM.afkSlider, valEl: allDOM.afkValue},
+            {el: allDOM.bestPerfSlider, valEl: allDOM.bestPerfValue},
+            {el: allDOM.teamEncounterSlider, valEl: allDOM.teamEncounterValue},
+            {el: allDOM.strongEnemySlider, valEl: allDOM.strongEnemyValue},
+        ];
+        sliderPairs.forEach(p => {
+            if (!p.el) return;
+            p.valEl.textContent = `${p.el.value}%`;
+            p.el.addEventListener("input", () => { p.valEl.textContent = `${p.el.value}%`; });
+        });
+
+        // 阵营切换
+        allDOM.factionSelect.addEventListener("change", e => {
+            const isSurvivor = e.target.value === "survivor";
+            allDOM.survivorOptions.style.display = isSurvivor ? "block" : "none";
+            allDOM.hunterOptions.style.display = isSurvivor ? "none" : "block";
+            // 微调强敌默认值
+            if (isSurvivor) {
+                allDOM.strongEnemySlider.value = 40; allDOM.strongEnemyValue.textContent = "40%";
+            } else {
+                allDOM.strongEnemySlider.value = 10; allDOM.strongEnemyValue.textContent = "10%";
+            }
+        });
+
+        /**********************
+         * 积分映射函数（复用并略微整理）
+         **********************/
+        function getPointsForRank(tierId, subTierId, stars) {
+            const tier = rankData.find(t => t.id === tierId);
+            if (!tier) return 0;
+            // 巅峰七阶：从 25 星开始累加
+            if (tier.name === "巅峰七阶") {
+                // stars 应为实际星数（例如 26 -> 1 星的额外）
+                const base = pointsToStartTier[8];
+                return base + Math.max(0, (stars - 25)) * tier.pointsPerStar;
+            }
+            let basePoints = pointsToStartTier[tierId];
+            if (tierId < 7) {
+                // 注意：subTierId 的值与UI一致（1..subTiers）
+                basePoints += (tier.subTiers - subTierId) * tier.starsPerSub * tier.pointsPerStar;
+            }
+            return basePoints + stars * tier.pointsPerStar;
+        }
+        function getRankFromPoints(points) {
+            if (points >= pointsToStartTier[8]) return {tier:8};
+            for (let i = 7; i >= 1; i--) {
+                if (points >= pointsToStartTier[i]) return {tier:i};
+            }
+            return {tier:1};
+        }
+
+        /**********************
+         * 主计算逻辑：基于期望值对局得分（含更细分的结局分布）
+         **********************/
+        function calculateExpectedBreakdownPerMatch(inputs, currentRank) {
+            // inputs 中 pWin, pDraw, pLoss, 分派好的各类结局 pFourEscape etc.
+            // 返回对象：{win, draw, loss, performance, protection, bonus, avg}
+            const breakdown = {win:0, draw:0, loss:0, performance:0, protection:0, bonus:0};
+            if (inputs.faction === "survivor") {
+                // 基础胜负分（按多个结局）
+                breakdown.win += (inputs.pFourEscape * 10 + inputs.pThreeEscape * 9);
+                breakdown.draw += inputs.pDraw * 1;
+                breakdown.loss += (inputs.pSingleEscape * -6 + inputs.pAllDead * -8);
+
+                // 三阶/四阶/五阶：胜利或平局时额外 +1
+                if ([3,4,5].includes(currentRank.tier)) {
+                    breakdown.win += inputs.pWin * 1;
+                    breakdown.draw += inputs.pDraw * 1;
+                }
+
+                // 演绎分，期望 1~4 -> 2.0（更保守）
+                breakdown.performance = 2.0;
+
+                // 单排加成（若单人排位）
+                if (inputs.isSolo) {
+                    // 单排达成条件时会有额外 0~2 的补偿（我们按概率权重给期望）
+                    // 以 pSoloAchievement 为触发概率（由 diligenceFreq 与 pLoss/pDraw 共同决定）
+                    const pSoloAchieve = Math.min(1, inputs.diligenceFreq * 0.6 + inputs.pWin * 0.05);
+                    breakdown.bonus += pSoloAchieve * 1.0; // 期望贡献
+                }
+
+                // 虽败犹荣 / 特殊成就（+1~+2）按频率参与
+                // 依据 rank.txt，若达成特定成就 +2；我们以 diligenceFreq 作为该“达成”概率在失败/平局情形下
+                breakdown.bonus += (inputs.pLoss + inputs.pDraw) * inputs.diligenceFreq * 1.2;
+
+                // 队友挂机补偿：若队友挂机，其他玩家 +2
+                breakdown.bonus += inputs.afkFreq * 2;
+
+            } else {
+                // 监管者
+                breakdown.win += (inputs.pNoEscape * 9 + inputs.pOneEscape * 8);
+                breakdown.draw += 0;
+                breakdown.loss += (inputs.pLeaveOne * -6 + inputs.pAllEscape * -7);
+
+                // 演绎分（淘汰人数排名给 1~4，我们取 2.5）
+                breakdown.performance = 2.5;
+
+                // 最佳演绎：在平/负局有一定概率获得 +1
+                breakdown.bonus += (inputs.pDraw + inputs.pLoss) * inputs.bestPerfFreq * 1.0;
+
+                // 多排遇敌：监管者上分项（四阶以上更明显），按频率期望 + (1~3)，我们用 1.8 作为经验因子
+                breakdown.bonus += inputs.teamEncounterFreq * 1.8;
+            }
+
+            // 强敌补偿（求/监都可获得 +1 或 +2），我们用 1.2 作为经验因子
+            breakdown.bonus += inputs.strongEnemyFreq * 1.2;
+
+            // 段位保护（规则）
+            if (currentRank.tier === 2) breakdown.protection += inputs.pLoss * 5;
+            if (currentRank.tier === 3) breakdown.protection += inputs.pLoss * 3;
+            if (currentRank.tier === 4) breakdown.protection += inputs.pLoss * 2 + inputs.pDraw * 1;
+
+            // 连败终止期望补偿（规则：终止连败时补偿最多 +4）
+            // 简化为一个期望公式（若你连败再胜利时会触发）
+            const p = inputs.pLoss;
+            const streakTerminationEV = inputs.pWin * (Math.pow(p,2)*1 + Math.pow(p,3)*2 + Math.pow(p,4)*3 + Math.pow(p,5)*4);
+            breakdown.bonus += streakTerminationEV;
+
+            // 总和（取 cap，避免单局期望超过现实边界）
+            let avg = breakdown.win + breakdown.draw + breakdown.loss + breakdown.performance + breakdown.protection + breakdown.bonus;
+
+            // 限制：额外加分不应无限叠加，cap 4 分（经验值）
+            const bonusCap = 4;
+            const pureBonus = breakdown.bonus + breakdown.protection + breakdown.performance;
+            // recompute avg using capped bonus part
+            const cappedExtra = Math.min(bonusCap, pureBonus);
+            avg = (breakdown.win + breakdown.draw + breakdown.loss) + cappedExtra;
+
+            // 还是保持演绎+保护单列显示（但对 avg 使用 cappedExtra）
+            return {
+                win: (breakdown.win + breakdown.draw + breakdown.loss) - (breakdown.loss), // baseline breakdown of win/draw/loss combined (for display)
+                baseWinsAndDraws: breakdown.win + breakdown.draw + breakdown.loss,
+                performance: breakdown.performance,
+                protection: breakdown.protection,
+                bonus: breakdown.bonus,
+                cappedExtra: cappedExtra,
+                avg: avg
+            };
+        }
+
+        /**********************
+         * 计算按钮逻辑（含按段位跳步以加速）
+         **********************/
+        allDOM.calculateBtn.addEventListener("click", () => {
+            allDOM.errorMessageDiv.style.display = "none";
+            allDOM.resultDiv.style.display = "none";
+
+            // 读取输入
+            const startStarsEl = document.getElementById("startStars") || document.getElementById("peakStarsInput");
+            const inputs = {
+                faction: allDOM.factionSelect.value,
+                startTier: parseInt(allDOM.startTier.value),
+                startSubTier: parseInt(allDOM.startSubTier.value),
+                startStars: parseInt(startStarsEl.value),
+                targetTier: parseInt(allDOM.targetTier.value),
+                targetSubTier: parseInt(allDOM.targetSubTier.value),
+                gameWinRate: parseFloat(document.getElementById("gameWinRate").value),
+                totalDrawRate: parseFloat(document.getElementById("totalDrawRate").value),
+                queueTime: parseFloat(document.getElementById("queueTime").value),
+                matchTime: parseFloat(document.getElementById("matchTime").value),
+                playHours: parseFloat(document.getElementById("playHours").value),
+                isSolo: document.getElementById("isSolo").checked,
+                diligenceFreq: parseFloat(document.getElementById("diligenceFreq").value)/100,
+                afkFreq: parseFloat(document.getElementById("afkFreq").value)/100,
+                bestPerfFreq: parseFloat(document.getElementById("bestPerfFreq").value)/100,
+                teamEncounterFreq: parseFloat(document.getElementById("teamEncounterFreq").value)/100,
+                strongEnemyFreq: parseFloat(document.getElementById("strongEnemyFreq").value)/100,
+                peakTargetStars: parseInt(document.getElementById("peakTargetStars").value)
+            };
+
+            // 基本校验
+            const required = [inputs.gameWinRate, inputs.totalDrawRate, inputs.queueTime, inputs.matchTime, inputs.playHours];
+            if (required.some(isNaN)) {
+                showError("请填写所有核心参数（胜率/平局率/时间/每日时长）。");
+                return;
+            }
+            if (inputs.totalDrawRate >= 100 || inputs.gameWinRate > 100) {
+                showError("胜率或平局占比不能超过 100%。");
+                return;
+            }
+            if (inputs.playHours <= 0) {
+                showError("每日排位时长必须大于 0。");
+                return;
+            }
+
+            // 处理起始与目标积分
+            const startPoints = getPointsForRank(inputs.startTier, inputs.startSubTier, inputs.startStars);
+            let targetPoints = 0;
+            if (inputs.targetTier === 8) {
+                if (isNaN(inputs.peakTargetStars) || inputs.peakTargetStars <= 25) {
+                    showError("巅峰七阶目标星数必须至少大于 25。");
+                    return;
+                }
+                if (inputs.startTier === 8 && inputs.peakTargetStars <= inputs.startStars) {
+                    showError("巅峰七阶的目标星数必须高于当前星数。");
+                    return;
+                }
+                targetPoints = pointsToStartTier[8] + (inputs.peakTargetStars - 25) * rankData[7].pointsPerStar;
+            } else if (inputs.targetTier === 7) {
+                // targetSubTier 代表 0..24 星（在 UI 里）
+                targetPoints = pointsToStartTier[7] + inputs.targetSubTier * rankData[6].pointsPerStar;
+            } else {
+                // 使用 totalPointsMap（与原逻辑保持一致）
+                const key = `${inputs.targetTier}-${inputs.targetSubTier}`;
+                if (totalPointsMap[key] !== undefined) {
+                    targetPoints = totalPointsMap[key];
+                } else {
+                    // fallback：使用该段位最低积分（start of tier）
+                    targetPoints = pointsToStartTier[inputs.targetTier];
+                }
+            }
+
+            if (startPoints >= targetPoints) {
+                showError("目标段位必须高于初始段位。");
+                return;
+            }
+
+            // 计算 pDraw / pWin / pLoss（与档案定义一致）
+            const pDraw = inputs.totalDrawRate / 100;
+            const gWR = inputs.gameWinRate / 100;
+            const pWin = gWR * (1 - pDraw);
+            const pLoss = 1 - pWin - pDraw;
+            if (pLoss < 0) {
+                showError("计算出的失败率小于 0，请检查胜率与平局率输入。");
+                return;
+            }
+
+            // 将总体胜/负分解为不同结局（经验拆分，简单而实用）
+            // 这些比率可以根据需要再作更细致调整
+            if (inputs.faction === "survivor") {
+                inputs.pDraw = pDraw;
+                inputs.pWin = pWin;
+                inputs.pLoss = pLoss;
+                inputs.pFourEscape = pWin * 0.5;     // 50% 的胜局是四人逃脱（经验）
+                inputs.pThreeEscape = pWin * 0.5;    // 50% 三人逃脱
+                inputs.pSingleEscape = pLoss * 0.35; // 失败中 35% 是单人逃脱（逃脱者获得少量正分）
+                inputs.pAllDead = pLoss * 0.65;      // 其余为全灭
+            } else {
+                inputs.pDraw = pDraw;
+                inputs.pWin = pWin;
+                inputs.pLoss = pLoss;
+                inputs.pNoEscape = pWin * 0.6;       // 60% 胜利为无人逃脱
+                inputs.pOneEscape = pWin * 0.4;      // 40% 胜利为一人逃脱
+                inputs.pLeaveOne = pLoss * 0.5;      // 失败一半留一人、一半全跑
+                inputs.pAllEscape = pLoss * 0.5;
+            }
+
+            // 主循环：按段位区间“跳步”以加速计算（而非一局一局 iter）
+            let totalMatches = 0;
+            let currentPoints = startPoints;
+            const MAX_MATCHES = 200000;
+            let lastAvg = null;
+
+            while (currentPoints < targetPoints) {
+                if (totalMatches > MAX_MATCHES) {
+                    showError("计算量过大 (>200k 场)，请检查输入是否合理或调高胜率/减少目标。");
+                    return;
+                }
+                // 当前段位
+                const currentRank = getRankFromPoints(currentPoints);
+
+                // 计算该段位下的平均每局得分（期望）
+                const breakdown = calculateExpectedBreakdownPerMatch(inputs, currentRank);
+                const avgPointsPerMatch = breakdown.avg;
+
+                // 若五阶及以上且 avgPointsPerMatch <= 0，则无法上分（或需要非常多场）
+                if (avgPointsPerMatch <= 0 && currentRank.tier >= 5) {
+                    showError("在当前输入参数下，五阶及以上段位的平均每局得分 ≤ 0，无法上分。请提高胜率或调整参数。");
+                    return;
+                }
+
+                // 计算到下一段位或到目标所需积分
+                const nextTierStart = pointsToStartTier[currentRank.tier + 1] !== undefined ? pointsToStartTier[currentRank.tier + 1] : Infinity;
+                // 我们想要到达的“阶段性目标”是：若目标Points 在当前段位内，则用 targetPoints；否则用 nextTierStart
+                const phaseTarget = Math.min(targetPoints, nextTierStart - 0.000001); // slight	margin
+                const pointsNeeded = Math.max(0, phaseTarget - currentPoints);
+
+                // 若 avgPointsPerMatch 非常接近 0，避免除零
+                if (avgPointsPerMatch <= 0.00001) {
+                    // 退回到每局迭代（保守处理）
+                    totalMatches += 1;
+                    currentPoints += 0.00001; // tiny progress to avoid infinite loop
+                    continue;
+                }
+
+                // 批量跳步：计算需要多少局可以达到 phaseTarget
+                let neededMatches = Math.ceil(pointsNeeded / avgPointsPerMatch);
+                if (neededMatches <= 0) neededMatches = 1;
+
+                // 防止一次跳步太大使积分突然跨越多个段位（我们允许，但仍保持 cap）
+                // 添加一个安全上限：一次最多跳 5000 场
+                if (neededMatches > 5000) neededMatches = 5000;
+
+                // 更新
+                totalMatches += neededMatches;
+                currentPoints += neededMatches * avgPointsPerMatch;
+
+                // 如果上次 avg 和本次 avg 差别巨大，则放慢步伐（避免误差累积）
+                if (lastAvg !== null && Math.abs(lastAvg - avgPointsPerMatch) / Math.max(1, lastAvg) > 0.6) {
+                    // 减少步长，改为 1/10
+                    const smallStep = Math.max(1, Math.floor(neededMatches / 10));
+                    totalMatches -= (neededMatches - smallStep);
+                    currentPoints -= (neededMatches - smallStep) * avgPointsPerMatch;
+                }
+                lastAvg = avgPointsPerMatch;
+            }
+
+            // 计算时间
+            const totalTimePerMatch = inputs.queueTime + inputs.matchTime; // minutes
+            const totalHours = totalMatches * totalTimePerMatch / 60;
+            const totalDays = totalHours / inputs.playHours;
+
+            // 最终的期望净收益 = 最近一次段位的 avg（展示用）
+            const finalRank = getRankFromPoints(currentPoints);
+            const finalBreakdown = calculateExpectedBreakdownPerMatch(inputs, finalRank);
+            const netGain = finalBreakdown.avg;
+
+            // 输出结果（详细）
+            allDOM.resultDiv.innerHTML = `
+                <h3 style="margin-top:0;">📊 上分计划（估算）</h3>
+                <p><strong>起始积分：</strong>${startPoints.toLocaleString()}</p>
+                <p><strong>目标积分：</strong>${Math.round(targetPoints).toLocaleString()}</p>
+                <p><strong>预估总对局数：</strong> <span style="font-size:1.18em;color:var(--primary-color);">${totalMatches.toLocaleString()}</span> 场</p>
+                <p><strong>⏱️ 预估总耗时：</strong> <span style="font-size:1.02em;color:var(--primary-color);">${totalHours.toFixed(1)}</span> 小时</p>
+                <p><strong>📅 预估所需天数：</strong> <span style="font-size:1.02em;color:var(--primary-color);">${Math.ceil(totalDays)}</span> 天（按每天 ${inputs.playHours} 小时计算）</p>
+                <div style="font-size:0.94em;margin-top:12px;padding-top:12px;border-top:1px dashed #ccc;">
+                    <strong>平均每局得分构成（估算期望）:</strong>
+                    <div style="margin-top:8px;">基础胜负（含平局）: <span style="color:#008f53;">${(finalBreakdown.baseWinsAndDraws).toFixed(2)}</span></div>
+                    <div>演绎分期望: <span style="color:#008f53;">+${finalBreakdown.performance.toFixed(2)}</span></div>
+                    <div>段位保护期望: <span style="color:#008f53;">+${finalBreakdown.protection.toFixed(2)}</span></div>
+                    <div>其它额外（虽败/挂机/最佳演绎/多排/强敌等）期望（未强制上限）: <span style="color:#008f53;">+${finalBreakdown.bonus.toFixed(2)}</span></div>
+                    <div style="font-weight:bold;margin-top:6px;">预估净收益（已对额外项做合理 cap）：<span style="color:${netGain>0?"#008f53":"#d93025"}">${netGain.toFixed(2)}</span> 分/局</div>
+                </div>
+                <div style="margin-top:10px;font-size:0.9em;color:#555;">
+                    <em>说明：</em> 本工具基于官方规则与经验拆分做期望值估算，结果仍为理论值；演绎分、特殊成就等在单局波动较大，实际结果会有波动。                    
+                </div>
+            `;
+            allDOM.resultDiv.style.display = "block";
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        });
+
+        /**********************
+         * 重置与赛季重置按钮
+         **********************/
+        allDOM.resetFormBtn.addEventListener("click", () => {
+            const currentFaction = allDOM.factionSelect.value;
+            document.getElementById("calculator-form").reset();
+            allDOM.factionSelect.value = currentFaction;
+            allDOM.resultDiv.style.display = "none";
+            allDOM.errorMessageDiv.style.display = "none";
+            // 恢复滑条默认值（较保守）
+            const defaults = {diligenceFreq:20, afkFreq:0.5, bestPerfFreq:30, teamEncounterFreq:40, strongEnemyFreq:40};
+            for (const k in defaults) {
+                const el = document.getElementById(k);
+                const valEl = document.getElementById(k + "Value");
+                if (el && valEl) {
+                    el.value = defaults[k];
+                    valEl.textContent = `${defaults[k]}%`;
+                }
+            }
+            updateSubTierSelect(allDOM.startTier, allDOM.startSubTier, 'start');
+            updateSubTierSelect(allDOM.targetTier, allDOM.targetSubTier, 'target');
+            updateSubTierSelect(allDOM.seasonEndTier, allDOM.seasonEndSubTier, 'seasonEnd');
+            updateStartStarsSelect();
+            allDOM.factionSelect.dispatchEvent(new Event('change'));
+        });
+
+        allDOM.resetBtn.addEventListener("click", () => {
+            const tierId = allDOM.seasonEndTier.value, subTierId = allDOM.seasonEndSubTier.value;
+            const key = `${tierId}-${subTierId}`;
+            // 你的原始重置映射（与用户最初保持一致）
+            const seasonResetMap = {'1-3':'1-3','1-2':'1-2','1-1':'1-1','2-4':'2-4','2-3':'2-3','2-2':'2-2','2-1':'2-1','3-5':'2-1','3-4':'3-5','3-3':'3-4','3-2':'3-3','3-1':'3-3','4-5':'3-2','4-4':'3-1','4-3':'3-1','4-2':'4-5','4-1':'4-4','5-5':'4-4','5-4':'4-3','5-3':'4-2','5-2':'4-2','5-1':'4-1','6-5':'4-1','6-4':'5-5','6-3':'5-5','6-2':'5-4','6-1':'5-4','7-1':'5-3','8-1':'5-2'};
+            const resetKey = seasonResetMap[key];
+            if (resetKey) {
+                const [newTierId, newSubTierId] = resetKey.split("-");
+                const newTier = rankData[parseInt(newTierId)-1];
+                const newSubTierName = newTier.id < 7 ? ` ${subTierNames[parseInt(newSubTierId)-1]}` : "";
+                allDOM.resetResultDiv.innerHTML = `新赛季段位为：<span style="color:var(--primary-color);">${newTier.name}${newSubTierName}</span>`;
+            } else {
+                allDOM.resetResultDiv.textContent = "未找到该段位的重置信息。";
+            }
+        });
+
+        /**********************
+         * 公共：显示错误
+         **********************/
+        function showError(message) {
+            allDOM.errorMessageDiv.textContent = message;
+            allDOM.errorMessageDiv.style.display = "block";
+            allDOM.resultDiv.style.display = "none";
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+    });
+    </script>
+</body>
+</html>
