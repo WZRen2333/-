@@ -1,3 +1,6 @@
+https://space.bilibili.com/333349219/
+关注作者额我是WZ人喵~
+
 # 第五人格排位计算器  
 Identity V Rank Calculator
 
